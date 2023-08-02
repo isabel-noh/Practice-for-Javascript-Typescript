@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      .main-box {
+        margin-top: 10rem;
+      }
+      .content-box {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin: auto;
+      }
+      li {
+        display: flex;
+        /* box-sizing: content-box; */
+        border-radius: 8px;
+        background-color: lightblue;
+        margin: 2px;
+        padding: 4px;
+        list-style: none;
+      }
+    </style>
+    <title>subway search</title>
+  </head>
+  <body>
+    <div class="main-box">
+      <span class="content-box">
+        <label for="inputBox">지하철 역명</label>
+        <input type="text" id="inputBox" />
+      </span>
+      <section id="results" style="display: flex; gap: 2px"></section>
+    </div>
+  </body>
+  <script>
+    class Node {
+      constructor(value = "") {
+        this.value = value; // 자기 자신의 노드 값
+        this.children = new Map(); // 자신의 자식 노드들
+      }
+    }
+
+    class Queue {
+      constructor() {
+        this.queue = [];
+        this.front = 0;
+        this.rear = 0;
+        this.size = 0;
+      }
+      enqueue(val) {
+        this.size += 1;
+        this.queue[this.rear++] = val;
+      }
+      dequeue() {
+        const value = this.queue[this.front];
+        delete this.queue[this.front];
+        this.front += 1;
+        this.size -= 1;
+        return value;
+      }
+    }
+
+    class Trie {
+      constructor() {
+        this.root = new Node();
+      }
+      insert(str) {
+        let currentNode = this.root;
+        //root 노드부터 시작하여, string의 인덱스를 하나하나 검사한다.
+        for (const char of str) {
+          // 자식에 char이 없으면 set 메서드를 이용하여 현재 노드의 자식노드를 문자열 char 를 Key로 지정하고, Value으로는 루트 노드부터 계속하여 문자열을 더해 자식노드의 value로 저장하면서 완성된 문자열 형태를 저장해주는 것이다.
+          if (!currentNode.children.has(char)) {
+            // currentNode.children는 Map이므로, { char : new Node(currentNode.value + char) }의 형태로 저장
+            currentNode.children.set(char, new Node(currentNode.value + char));
+          }
+          currentNode = currentNode.children.get(char);
+        }
+      }
+    }
+
+    class AutoComplete {
+      constructor(trie) {
+        this.root = trie.root;
+        this.word = [];
+      }
+      // root 노드에서 시작해서 검색 결과가 일치하는 것이 있으면 word[]에 추가하고, print메서드를 통해 정답을 반환
+      find(string) {
+        this.word = [];
+        const queue = new Queue();
+        let currentNode = this.root;
+        // 현재 루트노드의 자식이 그러한 문자열이 있는지 검색하는 과정
+        for (const char of string) {
+          // currentNode에 저장된 단어를 조각내어
+          if (currentNode.children.has(char)) {
+            // currentNode의 자식들에 현재 char이 있으면 가져와서 현재 노드로 변경 -> 계속 아래로 내려가
+            // '동'을 검색했다면, '동작역', '동대문역', '동대문역사문화공원역' 등 많다. 여기에서 다시 '동대'까지 검색한다면, '동대문역', '동대문역사문화공웜역', '동대입구역' 등으로 줄여질 것이기 때문에 currentNode를 '대'로 넘어가는 것
+            currentNode = currentNode.children.get(char);
+          }
+        }
+        currentNode.children.forEach((child) => {
+          // currentNode의 자식의 단어들을 잘라서 queue에 넣음
+          queue.enqueue(child);
+        });
+
+        // 자식이 없는 완성된 글자를 입력하게 되면 해당 node의 children은 없을 것
+        if (currentNode.children && currentNode.children.size === 0) {
+          if (string.length > currentNode.value.length) {
+            // 주어진 string 길이가 현재 value의 길이보다 크면 큐에 추가하지 않음, 예를 들면 '동대문역역'처럼 input에 들어온 단어의 길이가 더 길다면 검색 리스트에 추가하지 않음
+            return;
+          }
+          // 그렇지 않고 완성된 글자 자체라면 queue에 추가
+          queue.enqueue(currentNode);
+        }
+
+        while (queue.size) {
+          currentNode = queue.dequeue(); // 큐에서 노드를 하나씩 빼준다.
+          if (currentNode.children && currentNode.children.size == 0) {
+            // 정확한 역이름을 넣었다면 자식이 해당 노드의 자식이 없을 것이고, 올바른 역이름이기 때문에 return할 word 배열에 넣어준다.
+            this.word.push(currentNode.value);
+          } else {
+            // 그렇지 않고 '동대입'처럼 완성되지 않은 단어를 넣었다면, 현대 노드의 children에 있는 아이들을 모두 queue에 넣어준다.
+            currentNode.children.forEach((child) => {
+              queue.enqueue(child);
+            });
+          }
+        }
+        return this.word;
+      }
+    }
+
+    function fetchData() {
+      return fetch(
+        "http://openapi.seoul.go.kr:8088/554f595a6a6a756e36395a67555854/json/SearchSTNBySubwayLineInfo/1/1000/"
+      )
+        .then((response) => response.json())
+        .then((jsonData) => {
+          return jsonData.SearchSTNBySubwayLineInfo.row;
+        })
+        .catch((err) => console.log(err));
+    }
+    fetchData().then((data) => {
+      const subway_station = data.map((el) => el.STATION_NM);
+      // 모든 지하철역을 trie구조에 맞게 배치
+      subway_station.forEach((element) => {
+        trie.insert(element);
+      });
+    });
+
+    const inputBox = document.querySelector("#inputBox");
+    const results = document.querySelector("#results");
+    const $ul = document.querySelector("#results");
+
+    const checkInput = () => {
+      const inputValue = inputBox.value;
+      if (inputValue.trim() === "") {
+        results.textContent = "";
+        return;
+      }
+      loadAutoFill(inputValue);
+    };
+    const trie = new Trie();
+    const autocomplete = new AutoComplete(trie);
+
+    const loadAutoFill = (value) => {
+      const valueList = autocomplete.find(value);
+      if (valueList && valueList.length > 100) {
+        results.textContent = "찾으시는 역이 존재하지 않습니다.";
+        return;
+      }
+      fillHtml(valueList);
+    };
+
+    const fillHtml = (arr) => {
+      results.textContent = "";
+      if (!arr) {
+        return;
+      }
+      if ($ul) {
+        $ul.innerHTML = `
+        ${
+          arr &&
+          arr.map((el) => `<li class='station_nm_el'>${el}역</li>`).join(" ")
+        }
+        `;
+      }
+    };
+
+    inputBox.addEventListener("input", checkInput);
+  </script>
+</html>
