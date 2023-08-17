@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="./rockScissorsPaper.css" />
+    <title>Document</title>
+  </head>
+  <body>
+    <div class="container">
+      <div class="inner-container">
+        <h1>가위 바위 보</h1>
+        <div id="startOrGame">
+          <button id="startBtn">시작하기!</button>
+        </div>
+        <div class="button-wrapper">
+          <button class="player-buttons" id="item1">가위</button>
+          <button class="player-buttons" id="item2">바위</button>
+          <button class="player-buttons" id="item3">보</button>
+        </div>
+      </div>
+      <div class="modal-box">
+        <div class="modal-outer-box">
+          <div class="modal-inner-box">
+            <h2>결과 발표</h2>
+            <div id="result-show"></div>
+            <button class="reload-game">다시하기</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+      let pcItem = ""; // 램덤 가위바위보가 저장되는 변수
+      let timer = 0; // setInterval을 위한 타이머 -> .3초마다 changeVal 실행
+      let result = ""; // 가위바위보 결과가 저장되는 변수
+      const startBtn = document.querySelector("#startBtn");
+      const emoticons = ["✌️", "✊", "🖐️"];
+
+      function getRandom() {
+        // 0부터 2까지 난수 생성
+        return Math.floor(Math.random() * 3);
+      }
+
+      const changeToImg = document.querySelector("#startOrGame");
+      const emoticon = document.createElement("p");
+      emoticon.className = "emoticon-p";
+
+      function changeVal() {
+        // random숫자를 뽑아서 화면에 출력, pcItem 값 저장
+        const randomVal = getRandom();
+        pcItem = randomVal;
+        emoticon.innerText = emoticons[randomVal];
+      }
+
+      function startGame() {
+        // 게임이 처음 시작되면 실행되는 함수
+        // 시작 버튼을 삭제하고 대신 화면에 가위바위보 이미지를 보여줄 tag 추가
+        changeToImg.removeChild(startBtn);
+        changeToImg.appendChild(emoticon);
+
+        // setInterval을 활용하여 특정 시간마다 새로운 랜덤 값 뽑기
+        timer = setInterval(changeVal, 300);
+      }
+
+      startBtn.addEventListener("click", startGame);
+
+      const buttonWrapper =
+        document.getElementsByClassName("button-wrapper")[0];
+      const scissorBtn = document.getElementById("item1");
+      const rockBtn = document.getElementById("item2");
+      const paperBtn = document.getElementById("item3");
+
+      // 가위, 바위, 보 버튼 중에서 하나 클릭시 result계산 후 결과를 modal창으로 보여줌
+      buttonWrapper.addEventListener("click", function (e) {
+        let playerItem = "";
+        if (e.target === scissorBtn) {
+          playerItem = 0;
+        } else if (e.target === rockBtn) {
+          playerItem = 1;
+        } else if (e.target === paperBtn) {
+          playerItem = 2;
+        } else {
+          return;
+        }
+        result = calculate(playerItem, pcItem);
+        showResultModal();
+      });
+
+      function calculate(player, pc) {
+        // 결과를 계산하는 함수
+        // 가위, 바위, 보 -> 1, 2, 3
+        clearInterval(timer); // 게임을 중지할 것이기 때문에 timer을 정지시킴
+        let result = player - pc;
+        if (result === 0) {
+          // player과 pc가 값이 같으면 같은 값을 선택했다는 것이므로 무승부
+          return "무승부";
+        } else if (result === 1 || result === -2) {
+          // 가위바위보 순서일 때, 1 차이가 난다는 것은 내가 내가 주먹일 때, pc가 가위라는 것, 내가 보일 때, pc가 주먹이라는 것
+          // -2차이 난다는 것은 내가 가위일 때, pc가 보라는 것을 의미하므로 사용자가 승리
+          return "플레이어 승리!";
+        } else {
+          // 그 외는 사용자가 패배한 결과임
+          return "플레이어 패배ㅠㅠ";
+        }
+      }
+
+      const modalBox = document.querySelector(".modal-box");
+      const modal = document.querySelector(".modal");
+      const resultTitle = document.querySelector("#result-show");
+
+      function showResultModal() {
+        resultTitle.innerHTML = `
+          ${result}
+        `;
+
+        modalBox.classList.add("show"); // 원래는 display를 none으로 했다가, 결과를 보여주고 싶을 때는 show라는 클래스를 추가하여 해당 클래스르 opacity를 1로 주면서 화면에 보여지게 함
+      }
+      const restartBtn = document.querySelector(".reload-game");
+      restartBtn.addEventListener("click", function (e) {
+        modalBox.classList.remove("show"); // 다시 모달을 안 보이게 할 때는 'show' 클래스 이름을 삭제
+        restartGame();
+      });
+      function restartGame() {
+        // pcItem과 결과를 초기화하고 다시 changeVal 함수를 실행
+        pcItem = "";
+        result = "";
+        timer = setInterval(changeVal, 300);
+      }
+    </script>
+  </body>
+</html>
